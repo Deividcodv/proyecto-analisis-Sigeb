@@ -1,0 +1,516 @@
+// SIGEB - Sistema Integral de Gestión de Becas
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UsuarioEstado {
+  ACTIVO
+  INACTIVO
+}
+
+enum SolicitudEstado {
+  BORRADOR
+  ENVIADA
+  EN_REVISION
+  CORRECCION
+  EVALUADA
+  APROBADA
+  RECHAZADA
+}
+
+enum ConvocatoriaEstado {
+  BORRADOR
+  ABIERTA
+  CERRADA
+  EN_EVALUACION
+  RESUELTA
+  ARCHIVADA
+}
+
+enum PermisoEfecto {
+  PERMITIR
+  DENEGAR
+}
+
+enum SolicitudDocumentoEstado {
+  PENDIENTE
+  CARGADO
+  RECHAZADO
+}
+
+// ==========================================
+// SEGURIDAD Y USUARIOS
+// ==========================================
+
+model Usuario {
+  id           String         @id @default(uuid())
+  cui          String         @unique
+  nombres      String
+  email        String         @unique
+  passwordHash String
+  rolId        String
+  estado       UsuarioEstado  @default(ACTIVO)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  rol              Rol              @relation(fields: [rolId], references: [id])
+  solicitudes      Solicitud[]
+  usuarioPermisos  UsuarioPermiso[]
+  comiteMiembros   ComiteMiembro[]
+  evaluaciones     Evaluacion[]
+  votos            Voto[]
+  auditLogs        AuditLog[]
+
+  @@map("usuario")
+}
+
+model Rol {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usuarios      Usuario[]
+  rolPermisos   RolPermiso[]
+
+  @@map("rol")
+}
+
+model Permiso {
+  id        String   @id @default(uuid())
+  modulo    String
+  accion    String
+  createdAt DateTime @default(now())
+
+  rolPermisos      RolPermiso[]
+  usuarioPermisos  UsuarioPermiso[]
+
+  @@unique([modulo, accion])
+  @@map("permiso")
+}
+
+model RolPermiso {
+  id        String   @id @default(uuid())
+  rolId     String
+  permisoId String
+  createdAt DateTime @default(now())
+
+  rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([rolId, permisoId])
+  @@map("rol_permiso")
+}
+
+model UsuarioPermiso {
+  id         String        @id @default(uuid())
+  usuarioId  String
+  permisoId  String
+  efecto     PermisoEfecto
+  createdAt  DateTime      @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, permisoId])
+  @@map("usuario_permiso")
+}
+
+// ==========================================
+// CATÁLOGOS
+// ==========================================
+
+model Genero {
+  id     String  @id @default(uuid())
+  nombre String  @unique
+  activo Boolean @default(true)
+
+  perfiles SolicitudPerfilAcademico[]
+
+  @@map("genero")
+}
+
+model NivelAcademico {
+  id     String  @id @default(uuid())
+  nombre String  @unique
+  activo Boolean @default(true)
+
+  perfiles SolicitudPerfilAcademico[]
+
+  @@map("nivel_academico")
+}
+
+model Departamento {
+  id     String  @id @default(uuid())
+  nombre String  @unique
+  activo Boolean @default(true)
+
+  municipios Municipio[]
+  perfiles   SolicitudPerfilAcademico[]
+
+  @@map("departamento")
+}
+
+model Municipio {
+  id             String  @id @default(uuid())
+  nombre         String
+  departamentoId String
+  activo         Boolean @default(true)
+
+  departamento Departamento           @relation(fields: [departamentoId], references: [id])
+  perfiles     SolicitudPerfilAcademico[]
+
+  @@unique([nombre, departamentoId])
+  @@map("municipio")
+}
+
+// ==========================================
+// BECAS
+// ==========================================
+
+model Beca {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  activa      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  convocatorias       Convocatoria[]
+  criteriosEvaluacion CriterioEvaluacion[]
+
+  @@map("beca")
+}
+
+model CriterioEvaluacion {
+  id     String  @id @default(uuid())
+  becaId String
+  nombre String
+  peso   Float
+  activo Boolean @default(true)
+
+  beca         Beca         @relation(fields: [becaId], references: [id])
+  evaluaciones Evaluacion[]
+
+  @@map("criterio_evaluacion")
+}
+
+// ==========================================
+// CONVOCATORIAS
+// ==========================================
+
+model Convocatoria {
+  id              String              @id @default(uuid())
+  nombre          String
+  descripcion     String?
+  becaId          String
+  estado          ConvocatoriaEstado  @default(BORRADOR)
+  fechaApertura   DateTime?
+  fechaCierre     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  beca                 Beca                 @relation(fields: [becaId], references: [id])
+  documentosRequeridos ConvocatoriaDocRequerido[]
+  solicitudes          Solicitud[]
+
+  @@map("convocatoria")
+}
+
+model ConvocatoriaDocRequerido {
+  id              String   @id @default(uuid())
+  convocatoriaId  String
+  documentoTipoId String
+  obligatorio     Boolean  @default(true)
+
+  convocatoria  Convocatoria  @relation(fields: [convocatoriaId], references: [id], onDelete: Cascade)
+  documentoTipo DocumentoTipo @relation(fields: [documentoTipoId], references: [id])
+
+  @@unique([convocatoriaId, documentoTipoId])
+  @@map("convocatoria_doc_requerido")
+}
+
+// ==========================================
+// SOLICITUDES
+// ==========================================
+
+model Solicitud {
+  id                String          @id @default(uuid())
+  convocatoriaId    String
+  usuarioId         String
+  estado            SolicitudEstado @default(BORRADOR)
+  correccionesCount Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  convocatoria    Convocatoria      @relation(fields: [convocatoriaId], references: [id])
+  usuario         Usuario           @relation(fields: [usuarioId], references: [id])
+  perfilAcademico SolicitudPerfilAcademico?
+  perfilFinanciero SolicitudPerfilFinanciero?
+  documentos      SolicitudDocumento[]
+  historial       HistorialEstado[]
+  evaluaciones    Evaluacion[]
+  votos           Voto[]
+  decision        Decision?
+
+  @@map("solicitud")
+}
+
+model SolicitudPerfilAcademico {
+  id                 String  @id @default(uuid())
+  solicitudId        String  @unique
+  generoId           String?
+  generoOtro         String?
+  nivelAcademicoId   String?
+  nivelAcademicoOtro String?
+  institucion        String?
+  carrera            String?
+  promedio           Float?
+  departamentoId     String?
+  departamentoOtro   String?
+  municipioId        String?
+  municipioOtro      String?
+
+  solicitud      Solicitud      @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  genero         Genero?        @relation(fields: [generoId], references: [id])
+  nivelAcademico NivelAcademico? @relation(fields: [nivelAcademicoId], references: [id])
+  departamento   Departamento?  @relation(fields: [departamentoId], references: [id])
+  municipio      Municipio?     @relation(fields: [municipioId], references: [id])
+
+  @@map("solicitud_perfil_academico")
+}
+
+model SolicitudPerfilFinanciero {
+  id                   String   @id @default(uuid())
+  solicitudId          String   @unique
+  ingresoFamiliar      Float?
+  numeroDependientes   Int?
+  becasAnteriores      Boolean  @default(false)
+  descripcionSituacion String?
+
+  solicitud Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  @@map("solicitud_perfil_financiero")
+}
+
+model SolicitudDocumento {
+  id              String                    @id @default(uuid())
+  solicitudId     String
+  documentoTipoId String
+  archivoUrl      String
+  estado          SolicitudDocumentoEstado  @default(PENDIENTE)
+  version         Int                       @default(1)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  solicitud     Solicitud     @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  documentoTipo DocumentoTipo @relation(fields: [documentoTipoId], references: [id])
+
+  @@map("solicitud_documento")
+}
+
+model HistorialEstado {
+  id          String   @id @default(uuid())
+  solicitudId String
+  estado      String
+  comentario  String?
+  usuarioId   String
+  createdAt   DateTime @default(now())
+
+  solicitud Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  @@map("historial_estado")
+}
+
+// ==========================================
+// DOCUMENTOS TIPO
+// ==========================================
+
+model DocumentoTipo {
+  id     String  @id @default(uuid())
+  nombre String  @unique
+  activo Boolean @default(true)
+
+  convocatoriaDocRequeridos ConvocatoriaDocRequerido[]
+  solicitudDocumentos       SolicitudDocumento[]
+
+  @@map("documento_tipo")
+}
+
+// ==========================================
+// EVALUACIONES
+// ==========================================
+
+model Evaluacion {
+  id                   String   @id @default(uuid())
+  solicitudId          String
+  criterioEvaluacionId String
+  evaluadorId          String
+  puntaje              Float?
+  observaciones        String?
+  completada           Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  solicitud          Solicitud          @relation(fields: [solicitudId], references: [id])
+  criterioEvaluacion CriterioEvaluacion @relation(fields: [criterioEvaluacionId], references: [id])
+  evaluador          Usuario            @relation(fields: [evaluadorId], references: [id])
+
+  @@map("evaluacion")
+}
+
+// ==========================================
+// COMITÉS
+// ==========================================
+
+model Comite {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  miembros  ComiteMiembro[]
+  sesiones  Sesion[]
+
+  @@map("comite")
+}
+
+model ComiteMiembro {
+  id        String   @id @default(uuid())
+  comiteId  String
+  usuarioId String
+  rol       String
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  comite  Comite  @relation(fields: [comiteId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([comiteId, usuarioId])
+  @@map("comite_miembro")
+}
+
+model Sesion {
+  id           String   @id @default(uuid())
+  comiteId     String
+  fecha        DateTime
+  lugar        String?
+  estado       String   @default("PROGRAMADA")
+  quorumMinimo Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  comite     Comite     @relation(fields: [comiteId], references: [id])
+  votos      Voto[]
+  decisiones Decision[]
+
+  @@map("sesion")
+}
+
+model Voto {
+  id            String   @id @default(uuid())
+  sesionId      String
+  solicitudId   String
+  usuarioId     String
+  voto          String
+  observaciones String?
+  createdAt     DateTime @default(now())
+
+  sesion    Sesion    @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  solicitud Solicitud @relation(fields: [solicitudId], references: [id])
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+
+  @@unique([sesionId, solicitudId, usuarioId])
+  @@map("voto")
+}
+
+// ==========================================
+// DECISIONES
+// ==========================================
+
+model Decision {
+  id            String   @id @default(uuid())
+  solicitudId   String   @unique
+  sesionId      String
+  resultado     String
+  observaciones String?
+  fecha         DateTime @default(now())
+
+  solicitud Solicitud @relation(fields: [solicitudId], references: [id])
+  sesion    Sesion    @relation(fields: [sesionId], references: [id])
+
+  @@map("decision")
+}
+
+// ==========================================
+// AUDITORÍA
+// ==========================================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  usuarioId String
+  accion    String
+  entidad   String
+  entidadId String?
+  detalle   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("audit_log")
+}
+
+// ==========================================
+// ASISTENTE IA
+// ==========================================
+
+model AsistenteBaseConocimiento {
+  id        String   @id @default(uuid())
+  titulo    String
+  contenido String
+  tags      String[]
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("asistente_base_conocimiento")
+}
+
+model AsistenteConversacion {
+  id        String    @id @default(uuid())
+  usuarioId String?
+  sesionId  String?
+  createdAt DateTime  @default(now())
+
+  mensajes AsistenteMensaje[]
+
+  @@map("asistente_conversacion")
+}
+
+model AsistenteMensaje {
+  id             String   @id @default(uuid())
+  conversacionId String
+  rol            String
+  contenido      String
+  contexto       Json?
+  createdAt      DateTime @default(now())
+
+  conversacion AsistenteConversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@map("asistente_mensaje")
+}
