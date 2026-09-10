@@ -156,7 +156,6 @@ async function main() {
   });
   console.log('✅ Criterios de evaluación creados (demo)');
 
-
   // ==========================================
   // GÉNEROS
   // ==========================================
@@ -263,41 +262,56 @@ async function main() {
   });
   console.log('✅ Usuario admin creado (admin@sigeb.gov.gt / Admin123!)');
 
+  // ==========================================
+  // DEMO PORTAL PÚBLICO S2 (US-46) — cambios de David
+  // Postulante demo + convocatoria ABIERTA + solicitud de ejemplo
+  // ==========================================
+  const postulanteRoleS2 = await prisma.rol.findUnique({
+    where: { nombre: 'POSTULANTE' },
+  });
+
+  const demoPostulante = await prisma.usuario.upsert({
+    where: { cui: '9999999999999' },
+    update: { estado: 'ACTIVO' },
+    create: {
+      cui: '9999999999999',
+      nombres: 'Postulante Demo',
+      email: 'postulante@demo.gt',
+      passwordHash: hashedPassword,
+      rolId: postulanteRoleS2!.id,
+      estado: 'ACTIVO',
+    },
+  });
+  console.log('✅ Usuario postulante demo creado (postulante@demo.gt / Admin123!)');
+
+  const convPortalDemo = await prisma.convocatoria.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000021' },
+    update: { estado: 'ABIERTA' },
+    create: {
+      id: '00000000-0000-4000-8000-000000000021',
+      nombre: 'Beca Excelencia 2026 (Demo Portal)',
+      descripcion: 'Convocatoria abierta de prueba para el portal público',
+      becaId: becaDemo.id,
+      estado: 'ABIERTA',
+      fechaApertura: new Date(),
+      fechaCierre: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const solicitudDemo = await prisma.solicitud.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000031' },
+    update: { estado: 'ENVIADA' },
+    create: {
+      id: '00000000-0000-4000-8000-000000000031',
+      convocatoriaId: convPortalDemo.id,
+      usuarioId: demoPostulante.id,
+      estado: 'ENVIADA',
+    },
+  });
+  console.log('📋 CODIGO_DEMO_PARA_CONSULTA=', solicitudDemo.id);
+
   console.log('🎉 Seed completado exitosamente!');
 }
-
-const demoPostulante = await prisma.usuario.findUnique({
-  where: { email: 'postulante@demo.gt' },
-});
-
-const becaDemo = await prisma.beca.create({
-  data: {
-    nombre: 'Beca Excelencia 2026',
-    descripcion: 'Beca demo para el portal público',
-    activa: true,
-  },
-});
-
-const convDemo = await prisma.convocatoria.create({
-  data: {
-    nombre: 'Beca Excelencia 2026 (Demo)',
-    descripcion: 'Convocatoria abierta para pruebas del portal',
-    becaId: becaDemo.id,
-    estado: 'ABIERTA',
-    fechaApertura: new Date(),
-    fechaCierre: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-  },
-});
-
-const solicitudDemo = await prisma.solicitud.create({
-  data: {
-    convocatoriaId: convDemo.id,
-    usuarioId: demoPostulante!.id,
-    estado: 'ENVIADA',
-  },
-});
-
-console.log('CODIGO_DEMO_PARA_CONSULTA=', solicitudDemo.id);
 
 main()
   .catch((e) => {
