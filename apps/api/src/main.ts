@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as express from 'express';
+import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -8,6 +10,10 @@ async function bootstrap() {
 
   // Global prefix
   app.setGlobalPrefix('api');
+
+  // Almacenamiento estático (documentos subidos)
+  const storagePath = path.resolve(process.env.STORAGE_PATH || './storage');
+  app.use('/storage', express.static(storagePath));
 
   // CORS
   app.enableCors({

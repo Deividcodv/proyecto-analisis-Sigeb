@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [develop, master]
+    branches: [develop, master, 'feature/**']
   pull_request:
     branches: [develop, master]
 
@@ -56,6 +56,7 @@ jobs:
 
       - name: Build
         run: npm run build
+
 
   deploy-staging:
     needs: lint-and-test
