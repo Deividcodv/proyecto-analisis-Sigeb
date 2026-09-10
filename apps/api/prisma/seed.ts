@@ -156,6 +156,24 @@ async function main() {
   });
   console.log('✅ Criterios de evaluación creados (demo)');
 
+  const demoPostulante = await prisma.usuario.upsert({
+  where: { email: 'postulante.demo@sigeb.gov.gt' },
+  update: {},
+  create: { cui: 'DEMO000000', nombre: 'Postulante Demo', email: 'postulante.demo@sigeb.gov.gt' },
+});
+const convDemo = await prisma.convocatoria.create({
+  data: {
+    nombre: 'Beca Excelencia 2026 (Demo)',
+    descripcion: 'Convocatoria demo para el portal público',
+    estado: 'ABIERTA',
+    fechaApertura: new Date(),
+    fechaCierre: new Date(Date.now() + 30 * 864e5),
+  },
+});
+const solicitudDemo = await prisma.solicitud.create({
+  data: { convocatoriaId: convDemo.id, usuarioId: demoPostulante.id, estado: 'ENVIADA' },
+});
+console.log('CODIGO_DEMO_PARA_CONSULTA=', solicitudDemo.id); // el "código" es el UUID
   // ==========================================
   // GÉNEROS
   // ==========================================

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [develop, master]
+    branches: [develop, master, 'feature/**']
   pull_request:
     branches: [develop, master]
 
@@ -56,6 +56,20 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Smoke Sprints 3-5 (API)
+        env:
+          DATABASE_URL: postgresql://sigeb:sigeb123@localhost:5432/sigeb_test
+          JWT_SECRET: test-secret-key
+          STORAGE_PATH: /tmp/sigeb-storage
+        run: |
+          cd apps/api
+          npx prisma db seed
+          node dist/main.js > /tmp/api.log 2>&1 &
+          API_PID=$!
+          cd ../..
+          bash .github/scripts/smoke-ci.sh
+          kill "$API_PID" || true
 
   deploy-staging:
     needs: lint-and-test
