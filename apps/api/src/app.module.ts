@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { StorageModule } from './storage/storage.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
+import { ConvocatoriasModule } from './convocatorias/convocatorias.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CatalogosModule } from './catalogos/catalogos.module';
     AuthModule,
     UsersModule,
     CatalogosModule,
+    ConvocatoriasModule,
   ],
   controllers: [],
   providers: [],

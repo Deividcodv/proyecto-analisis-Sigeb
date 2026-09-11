@@ -4,6 +4,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import {
   CreateConvocatoriaDto,
   UpdateConvocatoriaDto,
@@ -17,7 +19,10 @@ import {
 
 @Injectable()
 export class ConvocatoriasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async create(dto: CreateConvocatoriaDto) {
     await this.assertBecaExists(dto.becaId);
@@ -34,9 +39,19 @@ export class ConvocatoriasService {
     });
   }
 
-  async findAllPublic() {
+  async findAllPublic(filtros?: { busqueda?: string }) {
+    const where: any = { estado: 'ABIERTA' };
+
+    if (filtros?.busqueda) {
+      where.OR = [
+        { nombre: { contains: filtros.busqueda, mode: 'insensitive' } },
+        { descripcion: { contains: filtros.busqueda, mode: 'insensitive' } },
+        { beca: { nombre: { contains: filtros.busqueda, mode: 'insensitive' } } },
+      ];
+    }
+
     return this.prisma.convocatoria.findMany({
-      where: { estado: 'ABIERTA' },
+      where,
       orderBy: { createdAt: 'desc' },
       include: { beca: true },
     });
@@ -98,7 +113,11 @@ export class ConvocatoriasService {
     });
   }
 
-  async transicion(id: string, dto: TransicionDto) {
+  async transicion(
+    id: string,
+    dto: TransicionDto,
+    usuario: AuthenticatedUser,
+  ) {
     const convocatoria = await this.findById(id);
 
     const siguienteEstado = ConvocatoriaStateMachine.next(
@@ -106,14 +125,28 @@ export class ConvocatoriasService {
       dto.accion,
     );
 
-    return this.prisma.convocatoria.update({
+    const actualizada = await this.prisma.convocatoria.update({
       where: { id },
       data: { estado: siguienteEstado },
       include: { beca: true },
     });
+
+    await this.audit.log({
+      usuarioId: usuario.id,
+      accion: 'transicion',
+      entidad: 'convocatoria',
+      entidadId: id,
+      detalle: { accion: dto.accion, estado: siguienteEstado },
+    });
+
+    return actualizada;
   }
 
-  async reemplazarDocumentosRequeridos(id: string, dto: DocumentosRequeridosDto) {
+  async reemplazarDocumentosRequeridos(
+    id: string,
+    dto: DocumentosRequeridosDto,
+    usuario: AuthenticatedUser,
+  ) {
     const convocatoria = await this.findById(id);
 
     if (convocatoria.estado !== 'BORRADOR') {
@@ -141,6 +174,14 @@ export class ConvocatoriasService {
         documentoTipoId: i.documentoTipoId,
         obligatorio: i.obligatorio,
       })),
+    });
+
+    await this.audit.log({
+      usuarioId: usuario.id,
+      accion: 'configurar-documentos',
+      entidad: 'convocatoria',
+      entidadId: id,
+      detalle: { items: dto.items },
     });
 
     return this.findById(id, true);
