@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { StorageModule } from './storage/storage.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
+import { ConvocatoriasModule } from './convocatorias/convocatorias.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { AuditModule } from './audit/audit.module';
     AuthModule,
     UsersModule,
     CatalogosModule,
+    ConvocatoriasModule,
     AuditModule,
   ],
   controllers: [],
