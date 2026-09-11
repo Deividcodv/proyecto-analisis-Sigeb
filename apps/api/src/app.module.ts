@@ -8,6 +8,7 @@ import { StorageModule } from './storage/storage.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
 import { ConvocatoriasModule } from './convocatorias/convocatorias.module';
 import { AuditModule } from './audit/audit.module';
+import { SolicitudesModule } from './solicitudes/solicitudes.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AuditModule } from './audit/audit.module';
     CatalogosModule,
     ConvocatoriasModule,
     AuditModule,
+    SolicitudesModule,
   ],
   controllers: [],
   providers: [],
