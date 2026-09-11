@@ -77,6 +77,7 @@ async function main() {
     { modulo: 'documento', accion: 'crear' },
     { modulo: 'documento', accion: 'ver' },
     { modulo: 'documento', accion: 'eliminar' },
+    { modulo: 'documento', accion: 'editar' },
     // Evaluaciones
     { modulo: 'evaluacion', accion: 'crear' },
     { modulo: 'evaluacion', accion: 'editar' },
@@ -117,6 +118,38 @@ async function main() {
     });
   }
   console.log('✅ Permisos asignados a ADMIN');
+
+  // POSTULANTE: permisos para el flujo de solicitudes y documentos
+  const postulanteRole = roles.find((r) => r.nombre === 'POSTULANTE');
+  const postulantePermisos = permisos.filter(
+    (p) =>
+      (p.modulo === 'solicitud' && ['crear', 'ver', 'editar'].includes(p.accion)) ||
+      (p.modulo === 'documento' && ['crear', 'ver', 'eliminar'].includes(p.accion)),
+  );
+  for (const permiso of postulantePermisos) {
+    await prisma.rolPermiso.upsert({
+      where: { rolId_permisoId: { rolId: postulanteRole!.id, permisoId: permiso.id } },
+      update: {},
+      create: { rolId: postulanteRole!.id, permisoId: permiso.id },
+    });
+  }
+  console.log('✅ Permisos asignados a POSTULANTE');
+
+  // COORDINADOR_COMITE: revisar solicitudes y rechazar documentos
+  const coordinadorRole = roles.find((r) => r.nombre === 'COORDINADOR_COMITE');
+  const coordinadorPermisos = permisos.filter(
+    (p) =>
+      p.modulo === 'solicitud' ||
+      (p.modulo === 'documento' && p.accion === 'editar'),
+  );
+  for (const permiso of coordinadorPermisos) {
+    await prisma.rolPermiso.upsert({
+      where: { rolId_permisoId: { rolId: coordinadorRole!.id, permisoId: permiso.id } },
+      update: {},
+      create: { rolId: coordinadorRole!.id, permisoId: permiso.id },
+    });
+  }
+  console.log('✅ Permisos asignados a COORDINADOR_COMITE');
 
   // ==========================================
   // BECAS Y CRITERIOS (demo)
